@@ -12,7 +12,7 @@ export default function ContractDetailPage() {
   const [issues, setIssues] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
-  const [staffForm, setStaffForm] = useState({ name: '', daily_rate: '', start_date: '' })
+  const [staffForm, setStaffForm] = useState({ name: '', surname: '', monthly_rate: '', start_date: '' })
   const [saving, setSaving] = useState(false)
 
   async function load() {
@@ -33,9 +33,9 @@ export default function ContractDetailPage() {
   async function addStaff(e) {
     e.preventDefault()
     setSaving(true)
-    const { error } = await supabase.from('staff').insert({ ...staffForm, contract_id: id, daily_rate: parseFloat(staffForm.daily_rate) })
+    const { error } = await supabase.from('staff').insert({ ...staffForm, contract_id: id, monthly_rate: parseFloat(staffForm.monthly_rate) })
     if (error) setError(error.message)
-    else { setStaffForm({ name: '', daily_rate: '', start_date: '' }); load() }
+    else { setStaffForm({ name: '', surname: '', monthly_rate: '', start_date: '' }); load() }
     setSaving(false)
   }
 
@@ -84,8 +84,8 @@ export default function ContractDetailPage() {
           {staff.map(s => (
             <div key={s.id} className="px-4 py-2 flex items-center justify-between">
               <div>
-                <span className={`text-sm font-medium ${s.active ? 'text-slate-800' : 'text-slate-400 line-through'}`}>{s.name}</span>
-                <span className="ml-2 text-xs text-slate-500">R{s.daily_rate}/day</span>
+                <span className={`text-sm font-medium ${s.active ? 'text-slate-800' : 'text-slate-400 line-through'}`}>{s.name} {s.surname}</span>
+                <span className="ml-2 text-xs text-slate-500">R{s.monthly_rate}/month</span>
               </div>
               {isOwner && (
                 <button onClick={() => toggleStaff(s)}
@@ -101,9 +101,11 @@ export default function ContractDetailPage() {
         {isOwner && (
           <form onSubmit={addStaff} className="px-4 py-3 border-t border-slate-100 flex flex-wrap gap-2">
             <input required placeholder="Name" value={staffForm.name} onChange={e => setStaffForm({ ...staffForm, name: e.target.value })}
-              className="border border-slate-300 rounded px-3 py-1.5 text-sm flex-1 min-w-[120px]" />
-            <input required type="number" step="0.01" placeholder="Daily rate (R)" value={staffForm.daily_rate} onChange={e => setStaffForm({ ...staffForm, daily_rate: e.target.value })}
-              className="border border-slate-300 rounded px-3 py-1.5 text-sm w-32" />
+              className="border border-slate-300 rounded px-3 py-1.5 text-sm flex-1 min-w-[100px]" />
+            <input required placeholder="Surname" value={staffForm.surname} onChange={e => setStaffForm({ ...staffForm, surname: e.target.value })}
+              className="border border-slate-300 rounded px-3 py-1.5 text-sm flex-1 min-w-[100px]" />
+            <input required type="number" step="0.01" placeholder="Gross monthly pay (R)" value={staffForm.monthly_rate} onChange={e => setStaffForm({ ...staffForm, monthly_rate: e.target.value })}
+              className="border border-slate-300 rounded px-3 py-1.5 text-sm w-40" />
             <input required type="date" value={staffForm.start_date} onChange={e => setStaffForm({ ...staffForm, start_date: e.target.value })}
               className="border border-slate-300 rounded px-3 py-1.5 text-sm w-36" />
             <button type="submit" disabled={saving}

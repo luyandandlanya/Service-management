@@ -27,7 +27,7 @@ export default function SalaryPage() {
     setError(null)
     const { data, error } = await supabase
       .from('salaries')
-      .select('*, staff(name, daily_rate)')
+      .select('*, staff(name, surname, monthly_rate)')
       .eq('month', selectedMonth)
       .in('staff_id',
         (await supabase.from('staff').select('id').eq('contract_id', selectedContract)).data?.map(s => s.id) || []
@@ -88,7 +88,25 @@ export default function SalaryPage() {
     for (const s of drafts) await approve(s.id)
   }
 
-  const totalApproved = salaries.filter(s => s.status === 'approved').reduce((sum, s) => sum + Number(s.amount), 0)
+  async function markPaid(salaryId) {
+    setError(null)
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      const res = await fetch(`${API_URL}/api/salary/${salaryId}/mark-paid`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      })
+      if (!res.ok) {
+        const err = await res.json()
+        throw new Error(err.detail || 'Failed to mark salary as paid')
+      }
+      loadSalaries()
+    } catch (err) {
+      setError(err.message)
+    }
+  }
+
+  const totalApproved = salaries.filter(s => s.status === 'approved' || s.status === 'paid').reduce((sum, s) => sum + Number(s.amount), 0)
 
   return (
     <div className="space-y-6">
@@ -136,12 +154,15 @@ export default function SalaryPage() {
             <table className="w-full text-sm">
               <thead className="bg-slate-50 text-slate-600">
                 <tr>
-                  <th className="text-left px-4 py-2">Staff</th>
+                  <th className="text-left px-4 py-2">Name</th>
+                  <th className="text-left px-4 py-2">Surname</th>
+                  <th className="text-right px-4 py-2">Gross pay</th>
                   <th className="text-right px-4 py-2">Working days</th>
-                  <th className="text-right px-4 py-2">Unpaid absent</th>
+                  <th className="text-right px-4 py-2">Day rate</th>
+                  <th className="text-right px-4 py-2">Absent</th>
                   <th className="text-right px-4 py-2">Days worked</th>
-                  <th className="text-right px-4 py-2">Daily rate</th>
-                  <th className="text-right px-4 py-2">Amount</th>
+                  <th className="text-right px-4 py-2">Deductions</th>
+                  <th className="text-right px-4 py-2">Total pay</th>
                   <th className="text-left px-4 py-2">Status</th>
                   <th className="px-4 py-2"></th>
                 </tr>
@@ -150,13 +171,16 @@ export default function SalaryPage() {
                 {salaries.map(s => (
                   <tr key={s.id}>
                     <td className="px-4 py-2 text-slate-800">{s.staff?.name}</td>
+                    <td className="px-4 py-2 text-slate-800">{s.staff?.surname}</td>
+                    <td className="px-4 py-2 text-right text-slate-600">R{Number(s.gross_pay ?? s.staff?.monthly_rate).toFixed(2)}</td>
                     <td className="px-4 py-2 text-right text-slate-600">{s.working_days_in_month}</td>
+                    <td className="px-4 py-2 text-right text-slate-600">R{Number(s.day_rate).toFixed(2)}</td>
                     <td className="px-4 py-2 text-right text-slate-600">{s.days_absent_unpaid}</td>
                     <td className="px-4 py-2 text-right text-slate-700 font-medium">{s.days_worked}</td>
-                    <td className="px-4 py-2 text-right text-slate-600">R{s.staff?.daily_rate}</td>
+                    <td className="px-4 py-2 text-right text-slate-600">R{Number(s.deductions).toFixed(2)}</td>
                     <td className="px-4 py-2 text-right font-semibold text-slate-800">R{Number(s.amount).toFixed(2)}</td>
                     <td className="px-4 py-2">
-                      <span className={`text-xs px-2 py-0.5 rounded-full ${s.status === 'approved' ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}`}>
+                      <span className={`text-xs px-2 py-0.5 rounded-full ${s.status === 'paid' ? 'bg-blue-100 text-blue-700' : s.status === 'approved' ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}`}>
                         {s.status}
                       </span>
                     </td>
@@ -167,11 +191,17 @@ export default function SalaryPage() {
                           Approve
                         </button>
                       )}
+                      {s.status === 'approved' && (
+                        <button onClick={() => markPaid(s.id)}
+                          className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded hover:bg-blue-200">
+                          Mark paid
+                        </button>
+                      )}
                     </td>
                   </tr>
                 ))}
                 {salaries.length === 0 && (
-                  <tr><td colSpan={8} className="px-4 py-3 text-slate-500">No salaries for this period. Click "Generate salaries" to create drafts.</td></tr>
+                  <tr><td colSpan={11} className="px-4 py-3 text-slate-500">No salaries for this period. Click "Generate salaries" to create drafts.</td></tr>
                 )}
               </tbody>
             </table>

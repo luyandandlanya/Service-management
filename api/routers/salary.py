@@ -110,13 +110,19 @@ def generate_salaries(body: GenerateRequest, owner_id: str = Depends(require_own
     for s in staff_list:
         unpaid = unpaid_counts.get(s["id"], 0)
         days_worked = max(working_days_count - unpaid, 0)
-        amount = round(days_worked * float(s["daily_rate"]), 2)
+        gross_pay = float(s["monthly_rate"])
+        day_rate = round(gross_pay / working_days_count, 2) if working_days_count else 0
+        deductions = round(unpaid * day_rate, 2)
+        amount = round(gross_pay - deductions, 2)
         records.append({
             "staff_id": s["id"],
             "month": body.month,
             "working_days_in_month": working_days_count,
             "days_absent_unpaid": unpaid,
             "days_worked": days_worked,
+            "gross_pay": gross_pay,
+            "day_rate": day_rate,
+            "deductions": deductions,
             "amount": amount,
             "status": "draft",
         })
@@ -143,3 +149,17 @@ def approve_salary(salary_id: str, owner_id: str = Depends(require_owner)):
     }).eq("id", salary_id).execute()
 
     return {"status": "approved"}
+
+
+@router.post("/{salary_id}/mark-paid")
+def mark_salary_paid(salary_id: str, owner_id: str = Depends(require_owner)):
+    db = get_client()
+    sal = db.table("salaries").select("status").eq("id", salary_id).single().execute()
+    if not sal.data:
+        raise HTTPException(status_code=404, detail="Salary record not found")
+    if sal.data["status"] != "approved":
+        raise HTTPException(status_code=400, detail="Only approved salaries can be marked paid")
+
+    db.table("salaries").update({"status": "paid"}).eq("id", salary_id).execute()
+
+    return {"status": "paid"}

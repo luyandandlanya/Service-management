@@ -2,17 +2,8 @@
 -- 003_seed_data.sql
 -- ============================================================
 
--- SITES
-INSERT INTO sites (id, name, address, client_name) VALUES
-  ('00000000-0000-0000-0000-000000000001', 'Bara Hospital', 'Soweto, Johannesburg', 'Chris Hani Baragwanath Academic Hospital'),
-  ('00000000-0000-0000-0000-000000000002', 'Chris Hani Baragwanath', 'Chris Hani Road, Soweto', 'CHBAH Facilities Management');
-
--- CONTRACTS (supervisor_id left NULL — assign via app)
-INSERT INTO contracts (id, site_id, name, working_days, pays_public_holidays, start_date, is_active) VALUES
-  ('10000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000001', 'Bara Grounds Maintenance', 'mon-fri', false, '2025-01-01', true),
-  ('10000000-0000-0000-0000-000000000002', '00000000-0000-0000-0000-000000000001', 'Bara Interior Cleaning', 'mon-sat', false, '2025-01-01', true),
-  ('10000000-0000-0000-0000-000000000003', '00000000-0000-0000-0000-000000000002', 'CHBAH Landscaping', 'mon-fri', false, '2025-02-01', true)
-ON CONFLICT DO NOTHING;
+-- Sites and contracts are entered through the app (Sites / Contracts pages)
+-- using the real client list — no placeholder rows seeded here.
 
 -- CONSUMABLES
 INSERT INTO consumables (name, unit, reorder_threshold) VALUES

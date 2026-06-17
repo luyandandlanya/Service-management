@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 
 export default function SitesPage() {
@@ -94,7 +95,9 @@ export default function SitesPage() {
             <tbody className="divide-y divide-slate-100">
               {sites.map(s => (
                 <tr key={s.id}>
-                  <td className="px-4 py-2 font-medium text-slate-800">{s.name}</td>
+                  <td className="px-4 py-2 font-medium text-slate-800">
+                    <Link to={`/sites/${s.id}`} className="hover:underline text-slate-800">{s.name}</Link>
+                  </td>
                   <td className="px-4 py-2 text-slate-600">{s.client_name || '—'}</td>
                   <td className="px-4 py-2 text-slate-600">{s.address || '—'}</td>
                   <td className="px-4 py-2 text-right">

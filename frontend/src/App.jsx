@@ -4,6 +4,7 @@ import Layout from './components/Layout'
 import LoginPage from './pages/auth/LoginPage'
 import DashboardPage from './pages/DashboardPage'
 import SitesPage from './pages/sites/SitesPage'
+import SiteDetailPage from './pages/sites/SiteDetailPage'
 import ContractsMgmtPage from './pages/contracts-mgmt/ContractsMgmtPage'
 import ContractDetailPage from './pages/contracts/ContractDetailPage'
 import AttendancePage from './pages/attendance/AttendancePage'
@@ -45,6 +46,7 @@ function AppRoutes() {
         <Route path="contracts/:id/assets" element={<AssetsPage />} />
         {/* Owner only */}
         <Route path="sites" element={<RequireOwner><SitesPage /></RequireOwner>} />
+        <Route path="sites/:id" element={<RequireOwner><SiteDetailPage /></RequireOwner>} />
         <Route path="contracts-mgmt" element={<RequireOwner><ContractsMgmtPage /></RequireOwner>} />
         <Route path="supervisors" element={<RequireOwner><SupervisorsPage /></RequireOwner>} />
         <Route path="salary" element={<RequireOwner><SalaryPage /></RequireOwner>} />
