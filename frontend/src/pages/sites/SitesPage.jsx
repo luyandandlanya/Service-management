@@ -1,116 +1,138 @@
-import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { useState, useEffect } from 'react'
 import { supabase } from '../../lib/supabase'
+import { useNavigate } from 'react-router-dom'
 
 export default function SitesPage() {
   const [sites, setSites] = useState([])
+  const [contracts, setContracts] = useState([])
+  const [expanded, setExpanded] = useState({})
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState(null)
-  const [form, setForm] = useState({ name: '', address: '', client_name: '' })
-  const [editId, setEditId] = useState(null)
-  const [saving, setSaving] = useState(false)
+  const [showAddSite, setShowAddSite] = useState(false)
+  const [siteForm, setSiteForm] = useState({ name: '', address: '', client_name: '' })
+  const navigate = useNavigate()
 
-  async function load() {
-    const { data, error } = await supabase.from('sites').select('*').order('name')
-    if (error) setError(error.message)
-    else setSites(data)
-    setLoading(false)
-  }
-
-  useEffect(() => { load() }, [])
-
-  function startEdit(site) {
-    setEditId(site.id)
-    setForm({ name: site.name, address: site.address || '', client_name: site.client_name || '' })
-  }
-
-  function cancelEdit() {
-    setEditId(null)
-    setForm({ name: '', address: '', client_name: '' })
-  }
-
-  async function handleSubmit(e) {
-    e.preventDefault()
-    setSaving(true)
-    setError(null)
-    if (editId) {
-      const { error } = await supabase.from('sites').update(form).eq('id', editId)
-      if (error) setError(error.message)
-      else { cancelEdit(); load() }
-    } else {
-      const { error } = await supabase.from('sites').insert(form)
-      if (error) setError(error.message)
-      else { setForm({ name: '', address: '', client_name: '' }); load() }
+  useEffect(() => {
+    async function load() {
+      const [{ data: s }, { data: c }] = await Promise.all([
+        supabase.from('sites').select('*').order('name'),
+        supabase.from('contracts').select('*, profiles(full_name)').order('name')
+      ])
+      setSites(s || [])
+      setContracts(c || [])
+      const exp = {}
+      ;(s || []).forEach(site => { exp[site.id] = true })
+      setExpanded(exp)
+      setLoading(false)
     }
-    setSaving(false)
+    load()
+  }, [])
+
+  async function addSite(e) {
+    e.preventDefault()
+    const { error } = await supabase.from('sites').insert(siteForm)
+    if (!error) {
+      setSiteForm({ name: '', address: '', client_name: '' })
+      setShowAddSite(false)
+      window.location.reload()
+    }
   }
+
+  const contractsFor = siteId => contracts.filter(c => c.site_id === siteId)
+
+  if (loading) return <div className="p-6 text-gray-400">Loading...</div>
 
   return (
-    <div className="space-y-6">
-      <h1 className="text-xl font-bold text-slate-800">Sites</h1>
-      {error && <p className="text-sm text-red-600 bg-red-50 p-3 rounded">{error}</p>}
-
-      <div className="bg-white rounded-lg shadow p-4">
-        <h2 className="font-semibold text-slate-700 mb-3">{editId ? 'Edit Site' : 'Add Site'}</h2>
-        <form onSubmit={handleSubmit} className="space-y-3">
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <div>
-              <label className="block text-xs font-medium text-slate-600 mb-1">Name *</label>
-              <input required value={form.name} onChange={e => setForm({ ...form, name: e.target.value })}
-                className="w-full border border-slate-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-400" />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-slate-600 mb-1">Address</label>
-              <input value={form.address} onChange={e => setForm({ ...form, address: e.target.value })}
-                className="w-full border border-slate-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-400" />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-slate-600 mb-1">Client Name</label>
-              <input value={form.client_name} onChange={e => setForm({ ...form, client_name: e.target.value })}
-                className="w-full border border-slate-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-400" />
-            </div>
-          </div>
-          <div className="flex gap-2">
-            <button type="submit" disabled={saving}
-              className="bg-slate-800 text-white px-4 py-2 rounded text-sm hover:bg-slate-700 disabled:opacity-50">
-              {saving ? 'Saving…' : editId ? 'Update' : 'Add Site'}
-            </button>
-            {editId && <button type="button" onClick={cancelEdit}
-              className="px-4 py-2 rounded text-sm border border-slate-300 hover:bg-slate-50">Cancel</button>}
-          </div>
-        </form>
+    <div className="p-6 max-w-5xl mx-auto">
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-2xl font-bold text-gray-900">Sites & Contracts</h1>
+        <button
+          onClick={() => setShowAddSite(!showAddSite)}
+          className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-blue-700"
+        >
+          + Add Site
+        </button>
       </div>
 
-      {loading ? <p className="text-slate-500">Loading…</p> : (
-        <div className="bg-white rounded-lg shadow overflow-hidden">
-          <table className="w-full text-sm">
-            <thead className="bg-slate-50 text-slate-600">
-              <tr>
-                <th className="text-left px-4 py-2">Name</th>
-                <th className="text-left px-4 py-2">Client</th>
-                <th className="text-left px-4 py-2">Address</th>
-                <th className="px-4 py-2"></th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {sites.map(s => (
-                <tr key={s.id}>
-                  <td className="px-4 py-2 font-medium text-slate-800">
-                    <Link to={`/sites/${s.id}`} className="hover:underline text-slate-800">{s.name}</Link>
-                  </td>
-                  <td className="px-4 py-2 text-slate-600">{s.client_name || '—'}</td>
-                  <td className="px-4 py-2 text-slate-600">{s.address || '—'}</td>
-                  <td className="px-4 py-2 text-right">
-                    <button onClick={() => startEdit(s)}
-                      className="text-slate-500 hover:text-slate-800 text-xs underline">Edit</button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          {sites.length === 0 && <p className="p-4 text-slate-500 text-sm">No sites yet.</p>}
-        </div>
+      {showAddSite && (
+        <form onSubmit={addSite} className="bg-white rounded-xl shadow p-5 mb-6 space-y-3">
+          <h2 className="font-semibold text-gray-700">New Site</h2>
+          <input required placeholder="Site name" value={siteForm.name}
+            onChange={e => setSiteForm({ ...siteForm, name: e.target.value })}
+            className="w-full border rounded px-3 py-2 text-sm" />
+          <input placeholder="Address" value={siteForm.address}
+            onChange={e => setSiteForm({ ...siteForm, address: e.target.value })}
+            className="w-full border rounded px-3 py-2 text-sm" />
+          <input placeholder="Client name" value={siteForm.client_name}
+            onChange={e => setSiteForm({ ...siteForm, client_name: e.target.value })}
+            className="w-full border rounded px-3 py-2 text-sm" />
+          <div className="flex gap-2">
+            <button type="submit" className="bg-green-600 text-white px-4 py-2 rounded text-sm">Save</button>
+            <button type="button" onClick={() => setShowAddSite(false)} className="text-gray-500 text-sm px-3">Cancel</button>
+          </div>
+        </form>
       )}
+
+      <div className="space-y-4">
+        {sites.map(site => {
+          const siteContracts = contractsFor(site.id)
+          const isExpanded = expanded[site.id]
+          return (
+            <div key={site.id} className="bg-white rounded-xl shadow overflow-hidden">
+              <div
+                className="flex items-center justify-between p-4 cursor-pointer hover:bg-gray-50"
+                onClick={() => setExpanded({ ...expanded, [site.id]: !isExpanded })}
+              >
+                <div>
+                  <h2 className="font-semibold text-gray-900">{site.name}</h2>
+                  {site.client_name && (
+                    <p className="text-sm text-gray-500">Client: {site.client_name}</p>
+                  )}
+                  {site.address && (
+                    <p className="text-xs text-gray-400">{site.address}</p>
+                  )}
+                </div>
+                <div className="flex items-center gap-3">
+                  <span className="text-xs bg-blue-50 text-blue-600 font-medium px-2 py-1 rounded-full">
+                    {siteContracts.length} contract{siteContracts.length !== 1 ? 's' : ''}
+                  </span>
+                  <span className="text-gray-400">{isExpanded ? '▲' : '▼'}</span>
+                </div>
+              </div>
+
+              {isExpanded && (
+                <div className="border-t divide-y">
+                  {siteContracts.length === 0 ? (
+                    <p className="px-6 py-3 text-sm text-gray-400">No contracts yet.</p>
+                  ) : (
+                    siteContracts.map(c => (
+                      <div
+                        key={c.id}
+                        className="flex items-center justify-between px-6 py-3 hover:bg-gray-50 cursor-pointer"
+                        onClick={() => navigate(`/contracts/${c.id}`)}
+                      >
+                        <div>
+                          <p className="font-medium text-sm text-gray-800">{c.name}</p>
+                          <p className="text-xs text-gray-400">
+                            Supervisor: {c.profiles?.full_name || 'Unassigned'} · {c.working_days}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+                            c.is_active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'
+                          }`}>
+                            {c.is_active ? 'Active' : 'Inactive'}
+                          </span>
+                          <span className="text-gray-400 text-sm">→</span>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              )}
+            </div>
+          )
+        })}
+      </div>
     </div>
   )
 }

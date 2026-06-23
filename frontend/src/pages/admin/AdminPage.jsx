@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabase'
+import BulkAssetImport from '../../components/BulkAssetImport'
 
 // ─── Generic CRUD table ───────────────────────────────────────────────────────
 function Section({ title, children }) {
@@ -336,6 +337,11 @@ export default function AdminPage() {
       <ProfileSection />
       <ConsumablesSection />
       <AssetsSection />
+      <Section title="Bulk Asset Import">
+        <div className="p-4">
+          <BulkAssetImport onSuccess={() => window.location.reload()} />
+        </div>
+      </Section>
       <HolidaysSection />
     </div>
   )

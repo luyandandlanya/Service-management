@@ -2,6 +2,9 @@ import { useEffect, useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../contexts/AuthContext'
+import WeeklyDeliverables from '../../components/WeeklyDeliverables'
+import BulkStaffImport from '../../components/BulkStaffImport'
+import MoveAssetForm from '../../components/MoveAssetForm'
 
 export default function ContractDetailPage() {
   const { id } = useParams()
@@ -10,21 +13,26 @@ export default function ContractDetailPage() {
   const [contract, setContract] = useState(null)
   const [staff, setStaff] = useState([])
   const [issues, setIssues] = useState([])
+  const [allContracts, setAllContracts] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [staffForm, setStaffForm] = useState({ name: '', surname: '', monthly_rate: '', start_date: '' })
   const [saving, setSaving] = useState(false)
+  const [showBulkImport, setShowBulkImport] = useState(false)
+  const [selectedAsset, setSelectedAsset] = useState(null)
 
   async function load() {
-    const [{ data: c, error: ce }, { data: s, error: se }, { data: i, error: ie }] = await Promise.all([
+    const [{ data: c, error: ce }, { data: s }, { data: i }, { data: ac }] = await Promise.all([
       supabase.from('contracts').select('*, sites(name, client_name), profiles!contracts_supervisor_id_fkey(full_name)').eq('id', id).single(),
       supabase.from('staff').select('*').eq('contract_id', id).order('name'),
       supabase.from('issues').select('*').eq('contract_id', id).eq('status', 'open').order('created_at', { ascending: false }).limit(5),
+      supabase.from('contracts').select('id, name, sites(name)').eq('is_active', true),
     ])
     if (ce) setError(ce.message)
     setContract(c)
     setStaff(s || [])
     setIssues(i || [])
+    setAllContracts(ac || [])
     setLoading(false)
   }
 
@@ -75,11 +83,29 @@ export default function ContractDetailPage() {
         ))}
       </div>
 
+      {/* Weekly Deliverables */}
+      <WeeklyDeliverables contractId={id} />
+
       {/* Staff */}
       <section className="bg-white rounded-lg shadow">
         <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
           <h2 className="font-semibold text-slate-700">Staff ({staff.filter(s => s.active).length} active)</h2>
+          {isOwner && (
+            <button
+              onClick={() => setShowBulkImport(!showBulkImport)}
+              className="text-xs text-slate-500 hover:text-slate-800 underline"
+            >
+              Bulk import
+            </button>
+          )}
         </div>
+
+        {isOwner && showBulkImport && (
+          <div className="px-4 py-3 border-b border-slate-100">
+            <BulkStaffImport contractId={id} onSuccess={() => { setShowBulkImport(false); load() }} />
+          </div>
+        )}
+
         <div className="divide-y divide-slate-50">
           {staff.map(s => (
             <div key={s.id} className="px-4 py-2 flex items-center justify-between">
@@ -115,6 +141,38 @@ export default function ContractDetailPage() {
           </form>
         )}
       </section>
+
+      {/* Asset movement */}
+      {isOwner && (
+        <section className="bg-white rounded-lg shadow">
+          <div className="px-4 py-3 border-b border-slate-100">
+            <h2 className="font-semibold text-slate-700">Log Asset Movement</h2>
+          </div>
+          <div className="px-4 py-3">
+            {selectedAsset ? (
+              <>
+                <p className="text-sm text-slate-600 mb-2">Asset: <strong>{selectedAsset.name}</strong></p>
+                <MoveAssetForm
+                  asset={selectedAsset}
+                  currentContractId={id}
+                  allContracts={allContracts}
+                  onSuccess={() => { setSelectedAsset(null) }}
+                />
+                <button
+                  onClick={() => setSelectedAsset(null)}
+                  className="mt-2 text-xs text-slate-400 hover:text-slate-700 underline"
+                >
+                  Cancel
+                </button>
+              </>
+            ) : (
+              <p className="text-sm text-slate-400">
+                Go to <Link to={`/contracts/${id}/assets`} className="underline text-slate-600">Assets</Link> to select an asset and log a movement.
+              </p>
+            )}
+          </div>
+        </section>
+      )}
 
       {/* Recent open issues */}
       {issues.length > 0 && (
