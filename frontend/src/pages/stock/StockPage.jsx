@@ -57,9 +57,52 @@ export default function StockPage() {
       contract_id: contractId,
       created_by: user.id,
     })
-    if (error) setError(error.message)
-    else { setForm({ consumable_id: '', type: 'delivered', quantity: '', day: '', notes: '' }); load() }
+    if (error) { setError(error.message); setSaving(false); return }
+
+    // After a "used" movement, check if balance is now below reorder threshold
+    if (form.type === 'used') {
+      await checkAndRaiseLowStockIssue(form.consumable_id)
+    }
+
+    setForm({ consumable_id: '', type: 'delivered', quantity: '', day: '', notes: '' })
+    load()
     setSaving(false)
+  }
+
+  async function checkAndRaiseLowStockIssue(consumableId) {
+    // Compute current balance for this consumable on this contract
+    const { data: allMoves } = await supabase
+      .from('stock_movements')
+      .select('type, quantity')
+      .eq('contract_id', contractId)
+      .eq('consumable_id', consumableId)
+
+    const balance = (allMoves || []).reduce((sum, m) =>
+      sum + (m.type === 'delivered' ? Number(m.quantity) : -Number(m.quantity)), 0)
+
+    const consumable = consumables.find(c => c.id === consumableId)
+    if (!consumable || balance >= (consumable.reorder_threshold ?? 0)) return
+
+    // Check if an open low_stock issue already exists for this consumable + contract
+    const { data: existing } = await supabase
+      .from('issues')
+      .select('id')
+      .eq('contract_id', contractId)
+      .eq('type', 'low_stock')
+      .eq('status', 'open')
+      .ilike('subject', consumable.name)
+      .limit(1)
+
+    if (existing?.length) return // already open, don't duplicate
+
+    await supabase.from('issues').insert({
+      contract_id: contractId,
+      type: 'low_stock',
+      subject: consumable.name,
+      description: `Balance is ${balance.toFixed(1)} ${consumable.unit} — below reorder threshold of ${consumable.reorder_threshold} ${consumable.unit}.`,
+      status: 'open',
+      created_by: user.id,
+    })
   }
 
   return (

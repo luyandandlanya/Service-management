@@ -7,6 +7,7 @@ const ownerLinks = [
   { to: '/contracts-mgmt', label: 'Contracts' },
   { to: '/supervisors', label: 'Supervisors' },
   { to: '/salary', label: 'Salaries' },
+  { to: '/reports', label: 'Reports' },
   { to: '/tracker', label: 'Tracker' },
   { to: '/admin', label: 'Admin / Setup' },
 ]

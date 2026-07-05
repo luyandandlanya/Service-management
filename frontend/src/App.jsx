@@ -16,6 +16,7 @@ import SupervisorsPage from './pages/supervisors/SupervisorsPage'
 import AdminPage from './pages/admin/AdminPage'
 import TrackerPage from './pages/tracker/TrackerPage'
 import TrackedItemDetailPage from './pages/tracker/TrackedItemDetailPage'
+import ExpenseReportPage from './pages/reports/ExpenseReportPage'
 
 function RequireAuth({ children }) {
   const { session, loading } = useAuth()
@@ -51,6 +52,7 @@ function AppRoutes() {
         <Route path="supervisors" element={<RequireOwner><SupervisorsPage /></RequireOwner>} />
         <Route path="salary" element={<RequireOwner><SalaryPage /></RequireOwner>} />
         <Route path="admin" element={<RequireOwner><AdminPage /></RequireOwner>} />
+        <Route path="reports" element={<RequireOwner><ExpenseReportPage /></RequireOwner>} />
         <Route path="tracker" element={<RequireOwner><TrackerPage /></RequireOwner>} />
         <Route path="tracker/:id" element={<RequireOwner><TrackedItemDetailPage /></RequireOwner>} />
       </Route>
