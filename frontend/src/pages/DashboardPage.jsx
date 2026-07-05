@@ -8,23 +8,32 @@ export default function DashboardPage() {
   const [stats, setStats] = useState(null)
   const [contracts, setContracts] = useState([])
   const [openIssues, setOpenIssues] = useState([])
+  const [trackerAlerts, setTrackerAlerts] = useState([])
   const navigate = useNavigate()
 
   useEffect(() => {
     async function load() {
+      const today = new Date().toISOString().slice(0, 10)
       const [
         { data: contractsData },
         { data: issuesData },
         { data: staffData },
-        { data: sitesData }
+        { data: sitesData },
+        { data: alertsData }
       ] = await Promise.all([
         supabase.from('contracts').select('*, sites(name)').eq('is_active', true),
         supabase.from('issues').select('*, contracts(name, sites(name))').eq('status', 'open').order('created_at', { ascending: false }).limit(10),
         supabase.from('staff').select('id, active, contract_id').eq('active', true),
-        supabase.from('sites').select('id')
+        supabase.from('sites').select('id'),
+        supabase.from('tracked_items')
+          .select('id, name, type, expiry_date, next_alert_date, status')
+          .eq('status', 'active')
+          .lte('next_alert_date', today)
+          .order('expiry_date'),
       ])
       setContracts(contractsData || [])
       setOpenIssues(issuesData || [])
+      setTrackerAlerts(alertsData || [])
       setStats({
         totalSites: sitesData?.length || 0,
         activeContracts: contractsData?.length || 0,
@@ -46,6 +55,37 @@ export default function DashboardPage() {
       <h1 className="text-2xl font-bold text-gray-900">
         {profile?.role === 'owner' ? 'Operations Overview' : 'My Contracts'}
       </h1>
+
+      {trackerAlerts.length > 0 && (
+        <div className="bg-red-50 border border-red-200 rounded-xl p-4 space-y-2">
+          <div className="flex items-center gap-2 mb-1">
+            <span className="text-red-600 font-semibold text-sm">Document Alerts</span>
+            <span className="bg-red-600 text-white text-xs font-bold px-2 py-0.5 rounded-full">{trackerAlerts.length}</span>
+          </div>
+          {trackerAlerts.map(item => {
+            const daysLeft = Math.ceil((new Date(item.expiry_date) - new Date()) / 86400000)
+            const isExpired = daysLeft < 0
+            return (
+              <div
+                key={item.id}
+                className="flex items-center justify-between bg-white rounded-lg px-3 py-2 border border-red-100 cursor-pointer hover:bg-red-50 transition"
+                onClick={() => navigate(`/tracker/${item.id}`)}
+              >
+                <div className="flex items-center gap-2">
+                  <span className={`text-xs px-2 py-0.5 rounded-full ${item.type === 'tender' ? 'bg-purple-100 text-purple-700' : item.type === 'certification' ? 'bg-blue-100 text-blue-700' : 'bg-slate-100 text-slate-700'}`}>
+                    {item.type}
+                  </span>
+                  <span className="text-sm font-medium text-slate-800">{item.name}</span>
+                </div>
+                <span className={`text-xs font-semibold shrink-0 ${isExpired ? 'text-red-700' : 'text-red-500'}`}>
+                  {isExpired ? `Expired ${Math.abs(daysLeft)}d ago` : `${daysLeft}d left`}
+                </span>
+              </div>
+            )
+          })}
+          <p className="text-xs text-red-400 pt-1">Click any item to view details or extend.</p>
+        </div>
+      )}
 
       {stats && (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
