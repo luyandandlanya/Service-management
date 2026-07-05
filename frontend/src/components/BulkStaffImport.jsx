@@ -23,7 +23,7 @@ export default function BulkStaffImport({ contractId, onSuccess }) {
     reader.onload = ev => {
       try {
         const rows = parseCSV(ev.target.result)
-        const required = ['name', 'surname', 'monthly_rate', 'start_date']
+        const required = ['name', 'surname', 'staff_type', 'start_date']
         const headers = Object.keys(rows[0] || {})
         const missing = required.filter(r => !headers.includes(r))
         if (missing.length) { setError(`Missing columns: ${missing.join(', ')}`); return }
@@ -39,7 +39,7 @@ export default function BulkStaffImport({ contractId, onSuccess }) {
       contract_id: contractId,
       name: r.name,
       surname: r.surname,
-      monthly_rate: parseFloat(r.monthly_rate),
+      staff_type: r.staff_type || 'team_member',
       start_date: r.start_date,
       active: true
     }))
@@ -54,7 +54,7 @@ export default function BulkStaffImport({ contractId, onSuccess }) {
     <div className="border-2 border-dashed rounded-lg p-4">
       <h3 className="font-medium text-gray-700 mb-2">Bulk Staff Import</h3>
       <p className="text-xs text-gray-400 mb-3">
-        CSV format: <code>name,surname,monthly_rate,start_date</code>
+        CSV format: <code>name,surname,staff_type,start_date</code> — staff_type: team_member | supervisor | relief_staff
       </p>
       <input type="file" accept=".csv" onChange={handleFile} className="text-sm" />
       {error && <p className="text-red-500 text-sm mt-2">{error}</p>}
@@ -67,7 +67,7 @@ export default function BulkStaffImport({ contractId, onSuccess }) {
                 <tr>
                   <th className="px-2 py-1 text-left">Name</th>
                   <th className="px-2 py-1 text-left">Surname</th>
-                  <th className="px-2 py-1 text-left">Monthly Rate</th>
+                  <th className="px-2 py-1 text-left">Staff Type</th>
                   <th className="px-2 py-1 text-left">Start Date</th>
                 </tr>
               </thead>
@@ -76,7 +76,7 @@ export default function BulkStaffImport({ contractId, onSuccess }) {
                   <tr key={i}>
                     <td className="px-2 py-1">{r.name}</td>
                     <td className="px-2 py-1">{r.surname}</td>
-                    <td className="px-2 py-1">R{r.monthly_rate}</td>
+                    <td className="px-2 py-1">{r.staff_type}</td>
                     <td className="px-2 py-1">{r.start_date}</td>
                   </tr>
                 ))}
