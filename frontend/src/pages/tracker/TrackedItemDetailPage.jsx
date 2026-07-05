@@ -40,16 +40,19 @@ export default function TrackedItemDetailPage() {
     const newExpiry = new Date(item.expiry_date)
     newExpiry.setMonth(newExpiry.getMonth() + 1)
     const newExpiryStr = newExpiry.toISOString().slice(0, 10)
+    const nd = new Date(newExpiryStr)
+    nd.setDate(nd.getDate() - parseInt(item.alert_lead_days || 30))
+    const newAlertStr = nd.toISOString().slice(0, 10)
 
     const { error: e1 } = await supabase.from('tracked_items')
-      .update({ expiry_date: newExpiryStr })
+      .update({ expiry_date: newExpiryStr, next_alert_date: newAlertStr })
       .eq('id', id)
 
     if (!e1) {
       await supabase.from('extensions').insert({
         tracked_item_id: id,
         original_alert_date: oldAlert,
-        new_alert_date: null,
+        new_alert_date: newAlertStr,
         reason: extReason || 'Extended by 1 month',
       })
       setExtReason('')
