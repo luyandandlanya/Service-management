@@ -3,21 +3,30 @@ import { supabase } from '../../lib/supabase'
 
 export default function SupervisorsPage() {
   const [supervisors, setSupervisors] = useState([])
+  const [contracts, setContracts] = useState([])
   const [loading, setLoading] = useState(true)
-  const [form, setForm] = useState({ full_name: '', email: '', phone: '', password: '' })
+  const [form, setForm] = useState({ full_name: '', email: '', phone: '', password: '', contract_id: '' })
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState(null)
   const [success, setSuccess] = useState(null)
   const [editId, setEditId] = useState(null)
-  const [editForm, setEditForm] = useState({ full_name: '', phone: '' })
+  const [editForm, setEditForm] = useState({ full_name: '', phone: '', contract_id: '' })
 
   async function load() {
-    const { data } = await supabase
-      .from('profiles')
-      .select('*, contracts!contracts_supervisor_id_fkey(id, name)')
-      .eq('role', 'supervisor')
-      .order('full_name')
-    setSupervisors(data || [])
+    const [{ data: sups }, { data: conts }] = await Promise.all([
+      supabase
+        .from('profiles')
+        .select('*, contracts!contracts_supervisor_id_fkey(id, name, sites(name))')
+        .eq('role', 'supervisor')
+        .order('full_name'),
+      supabase
+        .from('contracts')
+        .select('id, name, sites(name), supervisor_id')
+        .eq('is_active', true)
+        .order('name'),
+    ])
+    setSupervisors(sups || [])
+    setContracts(conts || [])
     setLoading(false)
   }
 
@@ -49,16 +58,37 @@ export default function SupervisorsPage() {
       return
     }
 
+    // Assign to contract if selected
+    if (form.contract_id && fnData?.id) {
+      const { error: assignErr } = await supabase
+        .from('contracts')
+        .update({ supervisor_id: fnData.id })
+        .eq('id', form.contract_id)
+      if (assignErr) {
+        setError(`Account created but contract assignment failed: ${assignErr.message}`)
+        setSaving(false)
+        return
+      }
+    }
+
     setSuccess(`Supervisor account created for ${form.full_name} (${form.email}). Share the password with them.`)
-    setForm({ full_name: '', email: '', phone: '', password: '' })
+    setForm({ full_name: '', email: '', phone: '', password: '', contract_id: '' })
     load()
     setSaving(false)
   }
 
   async function saveEdit(id) {
-    const { error } = await supabase.from('profiles').update(editForm).eq('id', id)
-    if (error) setError(error.message)
-    else { setEditId(null); load() }
+    const { contract_id, ...profileFields } = editForm
+    const { error } = await supabase.from('profiles').update(profileFields).eq('id', id)
+    if (error) { setError(error.message); return }
+
+    // Remove supervisor from any contract they're currently on, then assign the new one
+    await supabase.from('contracts').update({ supervisor_id: null }).eq('supervisor_id', id)
+    if (contract_id) {
+      await supabase.from('contracts').update({ supervisor_id: id }).eq('id', contract_id)
+    }
+    setEditId(null)
+    load()
   }
 
   return (
@@ -101,6 +131,18 @@ export default function SupervisorsPage() {
               className="w-full border border-slate-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-400" />
           </div>
           <div className="sm:col-span-2">
+            <label className="block text-xs font-medium text-slate-600 mb-1">Assign to contract</label>
+            <select value={form.contract_id} onChange={e => setForm({ ...form, contract_id: e.target.value })}
+              className="w-full border border-slate-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-400">
+              <option value="">Select contract (optional — can assign later)</option>
+              {contracts.map(c => (
+                <option key={c.id} value={c.id}>
+                  {c.sites?.name} — {c.name}{c.supervisor_id ? ' (already has supervisor)' : ''}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="sm:col-span-2">
             <button type="submit" disabled={saving}
               className="bg-slate-800 text-white px-5 py-2 rounded text-sm hover:bg-slate-700 disabled:opacity-50">
               {saving ? 'Creating account…' : 'Create supervisor account'}
@@ -119,32 +161,53 @@ export default function SupervisorsPage() {
             {supervisors.map(s => (
               <div key={s.id} className="px-4 py-3">
                 {editId === s.id ? (
-                  <div className="flex flex-wrap gap-2 items-center">
-                    <input value={editForm.full_name} onChange={e => setEditForm({ ...editForm, full_name: e.target.value })}
-                      className="border border-slate-300 rounded px-2 py-1 text-sm w-48" />
-                    <input value={editForm.phone} onChange={e => setEditForm({ ...editForm, phone: e.target.value })}
-                      placeholder="Phone"
-                      className="border border-slate-300 rounded px-2 py-1 text-sm w-40" />
-                    <button onClick={() => saveEdit(s.id)}
-                      className="text-xs bg-slate-800 text-white px-3 py-1.5 rounded hover:bg-slate-700">Save</button>
-                    <button onClick={() => setEditId(null)}
-                      className="text-xs border border-slate-300 px-3 py-1.5 rounded hover:bg-slate-50">Cancel</button>
+                  <div className="space-y-2">
+                    <div className="flex flex-wrap gap-2 items-center">
+                      <input value={editForm.full_name} onChange={e => setEditForm({ ...editForm, full_name: e.target.value })}
+                        placeholder="Full name"
+                        className="border border-slate-300 rounded px-2 py-1 text-sm w-48" />
+                      <input value={editForm.phone} onChange={e => setEditForm({ ...editForm, phone: e.target.value })}
+                        placeholder="Phone"
+                        className="border border-slate-300 rounded px-2 py-1 text-sm w-40" />
+                    </div>
+                    <div className="flex flex-wrap gap-2 items-center">
+                      <select value={editForm.contract_id} onChange={e => setEditForm({ ...editForm, contract_id: e.target.value })}
+                        className="border border-slate-300 rounded px-2 py-1 text-sm flex-1 min-w-[200px]">
+                        <option value="">Unassigned</option>
+                        {contracts.map(c => (
+                          <option key={c.id} value={c.id}>
+                            {c.sites?.name} — {c.name}
+                          </option>
+                        ))}
+                      </select>
+                      <button onClick={() => saveEdit(s.id)}
+                        className="text-xs bg-slate-800 text-white px-3 py-1.5 rounded hover:bg-slate-700">Save</button>
+                      <button onClick={() => setEditId(null)}
+                        className="text-xs border border-slate-300 px-3 py-1.5 rounded hover:bg-slate-50">Cancel</button>
+                    </div>
                   </div>
                 ) : (
                   <div className="flex items-start justify-between gap-3">
                     <div>
                       <p className="font-medium text-slate-800">{s.full_name || '—'}</p>
                       <p className="text-xs text-slate-500">{s.phone || 'No phone'}</p>
-                      {s.contracts?.length > 0 && (
-                        <p className="text-xs text-slate-400 mt-0.5">
-                          Contracts: {s.contracts.map(c => c.name).join(', ')}
-                        </p>
-                      )}
-                      {(!s.contracts || s.contracts.length === 0) && (
+                      {s.contracts?.length > 0 ? (
+                        <div className="flex flex-wrap gap-1 mt-0.5">
+                          {s.contracts.map(c => (
+                            <span key={c.id} className="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full">
+                              {c.sites?.name} — {c.name}
+                            </span>
+                          ))}
+                        </div>
+                      ) : (
                         <p className="text-xs text-amber-500 mt-0.5">Not assigned to any contract</p>
                       )}
                     </div>
-                    <button onClick={() => { setEditId(s.id); setEditForm({ full_name: s.full_name || '', phone: s.phone || '' }) }}
+                    <button onClick={() => {
+                      const currentContractId = s.contracts?.[0]?.id || ''
+                      setEditId(s.id)
+                      setEditForm({ full_name: s.full_name || '', phone: s.phone || '', contract_id: currentContractId })
+                    }}
                       className="text-xs text-slate-500 hover:text-slate-800 underline shrink-0">Edit</button>
                   </div>
                 )}
