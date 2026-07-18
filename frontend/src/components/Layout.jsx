@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { Outlet, NavLink, useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 
@@ -22,6 +23,7 @@ export default function Layout() {
   const navigate = useNavigate()
   const isOwner = profile?.role === 'owner'
   const links = isOwner ? ownerLinks : supervisorLinks
+  const [menuOpen, setMenuOpen] = useState(false)
 
   async function handleSignOut() {
     await signOut()
@@ -39,13 +41,24 @@ export default function Layout() {
             </span>
           )}
         </div>
-        <div className="flex items-center gap-4 text-sm">
+        <div className="flex items-center gap-3 text-sm">
           <span className="text-slate-400 hidden sm:inline">{profile?.full_name || '—'}</span>
           <button onClick={handleSignOut} className="text-slate-400 hover:text-white transition text-sm">Sign out</button>
+          {/* Hamburger — mobile only */}
+          <button
+            className="md:hidden flex flex-col gap-1 p-1"
+            onClick={() => setMenuOpen(!menuOpen)}
+            aria-label="Toggle menu"
+          >
+            <span className={`block w-5 h-0.5 bg-white transition-transform ${menuOpen ? 'translate-y-1.5 rotate-45' : ''}`} />
+            <span className={`block w-5 h-0.5 bg-white transition-opacity ${menuOpen ? 'opacity-0' : ''}`} />
+            <span className={`block w-5 h-0.5 bg-white transition-transform ${menuOpen ? '-translate-y-1.5 -rotate-45' : ''}`} />
+          </button>
         </div>
       </header>
 
-      <nav className="bg-slate-800 text-white flex gap-0.5 px-3 py-1.5 text-sm flex-wrap shadow-sm">
+      {/* Desktop nav — hidden on mobile */}
+      <nav className="hidden md:flex bg-slate-800 text-white gap-0.5 px-3 py-1.5 text-sm shadow-sm">
         {links.map(l => (
           <NavLink key={l.to} to={l.to} end={l.end}
             className={({ isActive }) =>
@@ -55,6 +68,21 @@ export default function Layout() {
           </NavLink>
         ))}
       </nav>
+
+      {/* Mobile nav — full-width dropdown */}
+      {menuOpen && (
+        <nav className="md:hidden bg-slate-800 text-white flex flex-col shadow-lg">
+          {links.map(l => (
+            <NavLink key={l.to} to={l.to} end={l.end}
+              onClick={() => setMenuOpen(false)}
+              className={({ isActive }) =>
+                `px-5 py-3 text-sm border-b border-slate-700 transition ${isActive ? 'bg-slate-600 text-white' : 'text-slate-300 hover:bg-slate-700 hover:text-white'}`
+              }>
+              {l.label}
+            </NavLink>
+          ))}
+        </nav>
+      )}
 
       <main className="flex-1 p-4 max-w-6xl mx-auto w-full">
         <Outlet />
