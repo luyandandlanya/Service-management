@@ -162,28 +162,26 @@ export default function SupervisorsPage() {
               <div key={s.id} className="px-4 py-3">
                 {editId === s.id ? (
                   <div className="space-y-2">
-                    <div className="flex flex-wrap gap-2 items-center">
-                      <input value={editForm.full_name} onChange={e => setEditForm({ ...editForm, full_name: e.target.value })}
-                        placeholder="Full name"
-                        className="border border-slate-300 rounded px-2 py-1 text-sm w-48" />
-                      <input value={editForm.phone} onChange={e => setEditForm({ ...editForm, phone: e.target.value })}
-                        placeholder="Phone"
-                        className="border border-slate-300 rounded px-2 py-1 text-sm w-40" />
-                    </div>
-                    <div className="flex flex-wrap gap-2 items-center">
-                      <select value={editForm.contract_id} onChange={e => setEditForm({ ...editForm, contract_id: e.target.value })}
-                        className="border border-slate-300 rounded px-2 py-1 text-sm flex-1 min-w-[200px]">
-                        <option value="">Unassigned</option>
-                        {contracts.map(c => (
-                          <option key={c.id} value={c.id}>
-                            {c.sites?.name} — {c.name}
-                          </option>
-                        ))}
-                      </select>
+                    <input value={editForm.full_name} onChange={e => setEditForm({ ...editForm, full_name: e.target.value })}
+                      placeholder="Full name"
+                      className="w-full border border-slate-300 rounded px-3 py-2 text-sm" />
+                    <input value={editForm.phone} onChange={e => setEditForm({ ...editForm, phone: e.target.value })}
+                      placeholder="Phone"
+                      className="w-full border border-slate-300 rounded px-3 py-2 text-sm" />
+                    <select value={editForm.contract_id} onChange={e => setEditForm({ ...editForm, contract_id: e.target.value })}
+                      className="w-full border border-slate-300 rounded px-3 py-2 text-sm">
+                      <option value="">Unassigned</option>
+                      {contracts.map(c => (
+                        <option key={c.id} value={c.id}>
+                          {c.sites?.name} — {c.name}
+                        </option>
+                      ))}
+                    </select>
+                    <div className="flex gap-2">
                       <button onClick={() => saveEdit(s.id)}
-                        className="text-xs bg-slate-800 text-white px-3 py-1.5 rounded hover:bg-slate-700">Save</button>
+                        className="bg-slate-800 text-white px-4 py-2 rounded text-sm hover:bg-slate-700">Save</button>
                       <button onClick={() => setEditId(null)}
-                        className="text-xs border border-slate-300 px-3 py-1.5 rounded hover:bg-slate-50">Cancel</button>
+                        className="border border-slate-300 px-4 py-2 rounded text-sm hover:bg-slate-50">Cancel</button>
                     </div>
                   </div>
                 ) : (
