@@ -29,29 +29,25 @@ export default function SupervisorsPage() {
     setError(null)
     setSuccess(null)
 
-    // Create auth user via Supabase admin API (requires service role — proxy through edge or use signUp)
-    // We use signUp with a known password; owner will share credentials
-    const { data, error: signUpErr } = await supabase.auth.signUp({
-      email: form.email,
-      password: form.password,
-      options: {
-        data: { full_name: form.full_name },
-        // emailRedirectTo not needed since owner sets password directly
+    // Call Edge Function — uses service role so owner session is not affected
+    const { data: sessionData } = await supabase.auth.getSession()
+    const token = sessionData?.session?.access_token
+    if (!token) { setError('Not authenticated.'); setSaving(false); return }
+
+    const { data: fnData, error: fnErr } = await supabase.functions.invoke('create-supervisor', {
+      body: {
+        email: form.email,
+        password: form.password,
+        full_name: form.full_name,
+        phone: form.phone || null,
       },
     })
 
-    if (signUpErr) { setError(signUpErr.message); setSaving(false); return }
-
-    const userId = data.user?.id
-    if (!userId) { setError('User was created but no ID returned. Check email confirmation settings.'); setSaving(false); return }
-
-    // Update profile with role + phone
-    const { error: profileErr } = await supabase
-      .from('profiles')
-      .update({ role: 'supervisor', full_name: form.full_name, phone: form.phone || null })
-      .eq('id', userId)
-
-    if (profileErr) { setError(`Account created but profile update failed: ${profileErr.message}`); setSaving(false); return }
+    if (fnErr || fnData?.error) {
+      setError(fnErr?.message || fnData?.error)
+      setSaving(false)
+      return
+    }
 
     setSuccess(`Supervisor account created for ${form.full_name} (${form.email}). Share the password with them.`)
     setForm({ full_name: '', email: '', phone: '', password: '' })
